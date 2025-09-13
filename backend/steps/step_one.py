@@ -13,15 +13,38 @@ async def run_step1(code: str) -> str:
     print("resp_dict:", resp)
     return resp
 
+# def build_step1_prompt(code: str) -> str:
+#     """
+#     构造 Step 1 的 Prompt
+#     """
+#     return f"""
+# 你是一个调试助手。
+# 用户提供了一段有错误的代码：{code}
+
+# 请生成 Step 1 调试输出，严格遵循下面的 JSON 格式：
+# {{
+#   "step": "Step 1/6",
+#   "mre_file": "test_mre.py",
+#   "run_result": "程序崩溃 (IndexError: list index out of range)",
+#   "question": "确认此用例是否能复现问题?",
+#   "options": {{"1": "确认", "2": "回退"}}
+# }}
+# """
+
 def build_step1_prompt(code: str) -> str:
     """
     构造 Step 1 的 Prompt
     """
     return f"""
 你是一个调试助手。
-用户提供了一段有错误的代码：{code}
+用户提供了一段可能有错误的代码：{code}
 
-请生成 Step 1 调试输出，严格遵循下面的 JSON 格式：
+你的任务：
+1. 尝试运行（或模拟运行）这段代码，并推理它的运行结果。
+2.如果代码能正常运行，描述主要输出。
+3.如果代码会报错，请写出崩溃原因和报错信息（包括异常类型）。
+
+最终严格输出 JSON,不要包含额外解释,输出 JSON 的格式如下（保持键值不变，只替换 run_result 的内容）：
 {{
   "step": "Step 1/6",
   "mre_file": "test_mre.py",
