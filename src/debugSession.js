@@ -344,7 +344,7 @@ class DebugSession {
     console.log(chalk.green(`\n已保存到: ${reportFileName}`));
     console.log(chalk.gray("可附加到 GitHub PR / Issue"));
 
-    console.log(chalk.rainbow("\n🎉 调试完成！"));
+    console.log(chalk.yellowBright("\n🎉 调试完成！"));
 
     return true;
   }
