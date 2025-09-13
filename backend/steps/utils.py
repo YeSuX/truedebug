@@ -1,6 +1,7 @@
 import json
+from typing import Optional
 
-def extract_hypothesis(step2_resp: dict, hypothesis_id: str) -> dict | None:
+def extract_hypothesis(step2_resp: dict, hypothesis_id: str) -> Optional[dict]:
     """
     从 Step 2 输出中提取指定假设的信息
 

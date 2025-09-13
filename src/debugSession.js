@@ -38,7 +38,7 @@ class DebugSession {
       () => this.step1_reproduce(),
       () => this.step2_hypothesize(),
       () => this.step3_instrument(),
-      () => this.step4_experiment(),
+      // () => this.step4_experiment(),
       () => this.step5_patch(),
       () => this.step6_regression(),
       () => this.step7_document(),
@@ -84,33 +84,28 @@ class DebugSession {
 
   async loadBugReport() {
     try {
-      this.sessionData.bugReport = await this.apiClient.fetchGitHubIssue(
-        this.githubUrl
-      );
+      const bugReport = await this.apiClient.fetchGitHubIssue(this.githubUrl);
+
+      this.sessionData.bugReport = bugReport.code_contents[0];
 
       console.log(chalk.gray("📄 Bug报告已从 GitHub URL 加载:"));
 
       // 显示基本信息
-      console.log(chalk.white(`标题: ${this.sessionData.bugReport.title}`));
-      console.log(chalk.white(`状态: ${this.sessionData.bugReport.state}`));
-      if (this.sessionData.bugReport.error_message) {
-        console.log(
-          chalk.red(`错误信息: ${this.sessionData.bugReport.error_message}`)
-        );
+      console.log(chalk.white(`标题: ${bugReport.title}`));
+      console.log(chalk.white(`状态: ${bugReport.state}`));
+      if (bugReport.error_message) {
+        console.log(chalk.red(`错误信息: ${bugReport.error_message}`));
       }
 
       // 显示获取的代码内容
-      if (
-        this.sessionData.bugReport.code_contents &&
-        this.sessionData.bugReport.code_contents.length > 0
-      ) {
+      if (bugReport.code_contents && bugReport.code_contents.length > 0) {
         console.log(
           chalk.blue(
-            `\n📁 从 issue 中提取的代码文件 (${this.sessionData.bugReport.code_contents.length} 个):`
+            `\n📁 从 issue 中提取的代码文件 (${bugReport.code_contents.length} 个):`
           )
         );
 
-        this.sessionData.bugReport.code_contents.forEach((codeItem, index) => {
+        bugReport.code_contents.forEach((codeItem, index) => {
           if (codeItem.success) {
             console.log(
               chalk.green(`\n[${index + 1}] ✅ ${codeItem.fileName}`)
@@ -159,9 +154,7 @@ class DebugSession {
       // 可选：显示完整的原始数据（用于调试）
       if (process.env.DEBUG === "true") {
         console.log(chalk.gray("\n🔍 调试信息 - 完整bug报告:"));
-        console.log(
-          chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
-        );
+        console.log(chalk.gray(JSON.stringify(bugReport, null, 2)));
       }
     } catch (error) {
       throw new Error(`无法从 GitHub URL 加载bug报告: ${error.message}`);
@@ -269,30 +262,33 @@ class DebugSession {
 
     try {
       // 调用后端API生成MRE
-      const mreResult = await this.apiClient.generateMRE(
-        this.sessionData.bugReport
-      );
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      spinner.succeed("已生成可复现用例 test_mre.py");
+      const mreResult = await this.apiClient.generateMRE({
+        code: this.sessionData.bugReport,
+        user_id: "1",
+      });
+
+      console.log(JSON.stringify(mreResult));
+
+      spinner.succeed(`已生成可复现用例 ${mreResult.result.mre_file}`);
 
       // 记录MRE生成结果
       this.logExperiment(
         "MRE生成",
         {
-          bugReport: this.sessionData.bugReport?.error_message || "未知错误",
+          bugReport: mreResult?.error_message || "未知错误",
           method: "API调用生成MRE",
         },
         {
-          file: "test_mre.py",
+          file: mreResult.result.mre_file,
           status: "生成成功",
-          executionResult: "IndexError: list index out of range",
+          executionResult: JSON.stringify(mreResult.result.run_result),
         },
         "成功生成了能够复现原始问题的最小测试用例"
       );
 
       console.log(
         chalk.green("运行结果:"),
-        chalk.red("程序崩溃 (IndexError: list index out of range)")
+        chalk.red(JSON.stringify(mreResult.result.run_result))
       );
 
       const { action } = await inquirer.prompt([

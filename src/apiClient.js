@@ -482,8 +482,9 @@ class ApiClient {
 
   async generateMRE(bugReport) {
     try {
-      const response = await this.client.post("/api/generate-mre", {
+      const response = await this.client.post("/step1", {
         bug_report: bugReport,
+        user_id: "1",
       });
       return response.data;
     } catch (error) {

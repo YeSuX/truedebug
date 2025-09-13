@@ -2,8 +2,9 @@ from backend.services.claude_client import claude_prompt
 from backend.steps.step_three import run_step3
 import re
 import json
+from typing import Optional
 
-async def handle_step2(code: str, step1_output: str | None = None , hypothesis: str | None = None) -> str:
+async def handle_step2(code: str, step1_output: Optional[str] = None , hypothesis: Optional[str] = None) -> str:
     
     # if hypothesis is None:
     #     return await run_step2(code, step1_output)

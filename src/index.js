@@ -55,7 +55,7 @@ program
 
     const session = new DebugSession({
       githubUrl: githubUrl,
-      serverUrl: options.server,
+      serverUrl: process.env.SERVER_URL,
     });
 
     try {
