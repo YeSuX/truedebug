@@ -89,9 +89,80 @@ class DebugSession {
       );
 
       console.log(chalk.gray("📄 Bug报告已从 GitHub URL 加载:"));
-      console.log(
-        chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
-      );
+
+      // 显示基本信息
+      console.log(chalk.white(`标题: ${this.sessionData.bugReport.title}`));
+      console.log(chalk.white(`状态: ${this.sessionData.bugReport.state}`));
+      if (this.sessionData.bugReport.error_message) {
+        console.log(
+          chalk.red(`错误信息: ${this.sessionData.bugReport.error_message}`)
+        );
+      }
+
+      // 显示获取的代码内容
+      if (
+        this.sessionData.bugReport.code_contents &&
+        this.sessionData.bugReport.code_contents.length > 0
+      ) {
+        console.log(
+          chalk.blue(
+            `\n📁 从 issue 中提取的代码文件 (${this.sessionData.bugReport.code_contents.length} 个):`
+          )
+        );
+
+        this.sessionData.bugReport.code_contents.forEach((codeItem, index) => {
+          if (codeItem.success) {
+            console.log(
+              chalk.green(`\n[${index + 1}] ✅ ${codeItem.fileName}`)
+            );
+            console.log(chalk.gray(`   路径: ${codeItem.filePath}`));
+            console.log(
+              chalk.gray(`   仓库: ${codeItem.owner}/${codeItem.repo}`)
+            );
+            console.log(chalk.gray(`   分支: ${codeItem.branch}`));
+
+            if (codeItem.lineRange) {
+              console.log(
+                chalk.gray(
+                  `   行范围: L${codeItem.lineRange.start}${
+                    codeItem.lineRange.end ? `-L${codeItem.lineRange.end}` : ""
+                  }`
+                )
+              );
+            }
+
+            console.log(chalk.gray(`   大小: ${codeItem.size} 字节`));
+
+            // 显示代码内容的前几行
+            const lines = codeItem.content.split("\n");
+            const previewLines = lines.slice(0, 5);
+            console.log(chalk.cyan(`   内容预览:`));
+            previewLines.forEach((line, lineIndex) => {
+              const lineNumber = codeItem.lineRange
+                ? codeItem.lineRange.start + lineIndex
+                : lineIndex + 1;
+              console.log(chalk.gray(`     ${lineNumber}: ${line}`));
+            });
+
+            if (lines.length > 5) {
+              console.log(chalk.gray(`     ... (共 ${lines.length} 行)`));
+            }
+          } else {
+            console.log(chalk.red(`\n[${index + 1}] ❌ ${codeItem.url}`));
+            console.log(chalk.red(`   错误: ${codeItem.error}`));
+          }
+        });
+      } else {
+        console.log(chalk.gray("\n📄 issue 中未找到 GitHub 代码链接"));
+      }
+
+      // 可选：显示完整的原始数据（用于调试）
+      if (process.env.DEBUG === "true") {
+        console.log(chalk.gray("\n🔍 调试信息 - 完整bug报告:"));
+        console.log(
+          chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
+        );
+      }
     } catch (error) {
       throw new Error(`无法从 GitHub URL 加载bug报告: ${error.message}`);
     }

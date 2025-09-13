@@ -114,6 +114,10 @@ class ApiClient {
 
       const issue = response.data;
 
+      // 提取并获取 issue body 中的代码内容
+      console.log(chalk.gray("🔍 开始提取 issue body 中的 GitHub 代码链接..."));
+      const codeContents = await this.extractAndFetchCodeFromIssue(issue.body);
+
       // 将 GitHub issue 转换为 bug report 格式
       const bugReport = {
         title: issue.title,
@@ -128,6 +132,8 @@ class ApiClient {
         error_message: this.extractErrorFromIssueBody(issue.body),
         // 从 issue 内容中提取代码文件信息
         code_file: this.extractCodeFileFromIssueBody(issue.body),
+        // 添加从 GitHub 链接中获取的代码内容
+        code_contents: codeContents,
         environment: {
           source: "github_issue",
           repository: `${owner}/${repo}`,
@@ -203,6 +209,213 @@ class ApiClient {
     }
 
     return null;
+  }
+
+  // 从 issue 内容中提取 GitHub 代码链接
+  extractGitHubCodeLinks(body) {
+    if (!body) return [];
+
+    // 匹配 GitHub 代码链接模式
+    const githubCodeLinkPatterns = [
+      // 标准的 GitHub blob 链接
+      /https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/([^\/]+)\/([^\s)]+)/g,
+      // GitHub 代码片段链接 (带行号)
+      /https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/([^\/]+)\/([^\s)#]+)#L(\d+)(?:-L(\d+))?/g,
+    ];
+
+    const codeLinks = [];
+
+    for (const pattern of githubCodeLinkPatterns) {
+      let match;
+      while ((match = pattern.exec(body)) !== null) {
+        const [fullUrl, owner, repo, branch, filePath, startLine, endLine] =
+          match;
+
+        codeLinks.push({
+          url: fullUrl,
+          owner,
+          repo,
+          branch,
+          filePath,
+          startLine: startLine ? parseInt(startLine) : null,
+          endLine: endLine ? parseInt(endLine) : null,
+        });
+      }
+    }
+
+    // 去重 - 基于完整URL
+    const uniqueLinks = codeLinks.filter(
+      (link, index, self) => index === self.findIndex((l) => l.url === link.url)
+    );
+
+    return uniqueLinks;
+  }
+
+  // 从 GitHub 获取代码文件内容
+  async fetchGitHubFileContent(
+    owner,
+    repo,
+    branch,
+    filePath,
+    startLine = null,
+    endLine = null
+  ) {
+    try {
+      // 使用 GitHub API 获取文件内容
+      const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
+
+      console.log(
+        chalk.gray(`🔗 正在获取 GitHub 文件内容: ${owner}/${repo}/${filePath}`)
+      );
+
+      // 构建请求头
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "VibeDebug-Tool",
+      };
+
+      // 如果有 GitHub token，添加认证头
+      if (this.githubToken) {
+        headers.Authorization = `token ${this.githubToken}`;
+      }
+
+      const response = await axios.get(apiUrl, {
+        headers,
+        timeout: 10000,
+      });
+
+      const fileData = response.data;
+
+      // GitHub API 返回的内容是 base64 编码的
+      const content = Buffer.from(fileData.content, "base64").toString("utf-8");
+
+      // 如果指定了行号范围，只返回相应的行
+      if (startLine !== null) {
+        const lines = content.split("\n");
+        const start = Math.max(0, startLine - 1); // 转换为0索引
+        const end = endLine ? Math.min(lines.length, endLine) : startLine;
+
+        return {
+          content: lines.slice(start, end).join("\n"),
+          fullContent: content,
+          lineRange: { start: startLine, end: endLine || startLine },
+          fileName: filePath.split("/").pop(),
+          filePath,
+          size: fileData.size,
+          sha: fileData.sha,
+        };
+      }
+
+      return {
+        content,
+        fullContent: content,
+        lineRange: null,
+        fileName: filePath.split("/").pop(),
+        filePath,
+        size: fileData.size,
+        sha: fileData.sha,
+      };
+    } catch (error) {
+      if (error.response?.status === 404) {
+        throw new Error(`GitHub 文件不存在: ${owner}/${repo}/${filePath}`);
+      } else if (error.response?.status === 403) {
+        if (!this.githubToken) {
+          throw new Error(
+            `GitHub API 访问受限，无法获取文件内容。请设置 GITHUB_TOKEN 环境变量。\n文件: ${owner}/${repo}/${filePath}`
+          );
+        } else {
+          throw new Error(
+            `GitHub API 访问受限: token 可能无效或权限不足\n文件: ${owner}/${repo}/${filePath}`
+          );
+        }
+      } else if (error.code === "ENOTFOUND") {
+        throw new Error("无法连接到 GitHub API，请检查网络连接");
+      } else {
+        throw new Error(
+          `获取 GitHub 文件内容失败: ${error.message}\n文件: ${owner}/${repo}/${filePath}`
+        );
+      }
+    }
+  }
+
+  // 从 issue body 中提取并获取所有代码内容
+  async extractAndFetchCodeFromIssue(issueBody) {
+    if (!issueBody) return [];
+
+    try {
+      // 提取所有 GitHub 代码链接
+      const codeLinks = this.extractGitHubCodeLinks(issueBody);
+
+      if (codeLinks.length === 0) {
+        console.log(chalk.gray("📄 未在 issue body 中找到 GitHub 代码链接"));
+        return [];
+      }
+
+      console.log(
+        chalk.blue(
+          `🔍 在 issue body 中找到 ${codeLinks.length} 个 GitHub 代码链接`
+        )
+      );
+
+      // 并行获取所有代码文件内容
+      const codeContents = await Promise.allSettled(
+        codeLinks.map(async (link) => {
+          try {
+            const content = await this.fetchGitHubFileContent(
+              link.owner,
+              link.repo,
+              link.branch,
+              link.filePath,
+              link.startLine,
+              link.endLine
+            );
+
+            return {
+              ...link,
+              ...content,
+              success: true,
+            };
+          } catch (error) {
+            console.log(
+              chalk.yellow(`⚠️  获取文件失败: ${link.url} - ${error.message}`)
+            );
+            return {
+              ...link,
+              success: false,
+              error: error.message,
+            };
+          }
+        })
+      );
+
+      // 处理结果
+      const results = codeContents.map((result, index) => {
+        if (result.status === "fulfilled") {
+          return result.value;
+        } else {
+          return {
+            ...codeLinks[index],
+            success: false,
+            error: result.reason?.message || "获取失败",
+          };
+        }
+      });
+
+      const successfulResults = results.filter((r) => r.success);
+      const failedResults = results.filter((r) => !r.success);
+
+      console.log(
+        chalk.green(`✅ 成功获取 ${successfulResults.length} 个文件的内容`)
+      );
+      if (failedResults.length > 0) {
+        console.log(chalk.yellow(`⚠️  ${failedResults.length} 个文件获取失败`));
+      }
+
+      return results;
+    } catch (error) {
+      console.error(chalk.red(`❌ 提取代码内容时发生错误: ${error.message}`));
+      return [];
+    }
   }
 
   // 提交评论到 GitHub issue
