@@ -34,12 +34,40 @@ class DebugSession {
       () => this.step7_document(),
     ];
 
-    for (let i = 0; i < steps.length; i++) {
+    let i = 0;
+    while (i < steps.length) {
       this.currentStep = i + 1;
-      const shouldContinue = await steps[i]();
-      if (!shouldContinue) {
-        console.log(chalk.yellow("🔄 用户选择退出或回退"));
-        break;
+      const result = await steps[i]();
+
+      if (result === "exit") {
+        console.log(chalk.yellow("🚪 用户选择退出调试会话"));
+        return;
+      } else if (result === "back") {
+        if (i === 0) {
+          console.log(chalk.yellow("⚠️  已经是第一步，无法回退"));
+          continue; // 重新执行当前步骤
+        } else if (i === 3) {
+          // Step 4 回退到 Step 2
+          console.log(chalk.yellow("🔄 回退到 Step 2 (假设成因)"));
+          i = 1; // 回退到Step 2 (索引1)
+          continue;
+        } else if (i === 4) {
+          // Step 5 回退到 Step 4
+          console.log(chalk.yellow("🔄 回退到 Step 4 (实验执行)"));
+          i = 3; // 回退到Step 4 (索引3)
+          continue;
+        } else {
+          console.log(chalk.yellow("🔄 回退到上一步"));
+          i--; // 回退到上一步
+          continue;
+        }
+      } else if (result === "continue") {
+        i++; // 继续下一步
+      } else if (result === false || result === "skip") {
+        console.log(chalk.yellow("⏭️  跳过当前步骤"));
+        i++; // 继续下一步
+      } else {
+        i++; // 正常继续下一步
       }
     }
   }
@@ -71,6 +99,28 @@ class DebugSession {
     console.log();
   }
 
+  async askStepNavigation(message = "请选择下一步操作:") {
+    const choices = [{ name: "✅ 继续下一步", value: "continue" }];
+
+    // 如果不是第一步，添加回退选项
+    if (this.currentStep > 1) {
+      choices.push({ name: "⬅️  回退上一步", value: "back" });
+    }
+
+    choices.push({ name: "🚪 退出调试", value: "exit" });
+
+    const { action } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "action",
+        message: message,
+        choices: choices,
+      },
+    ]);
+
+    return action;
+  }
+
   async step1_reproduce() {
     this.showStepHeader("复现场景", "最小化可复现用例 (MRE)");
 
@@ -95,14 +145,25 @@ class DebugSession {
           message: "确认此用例是否能复现问题?",
           choices: [
             { name: "✅ 确认", value: "confirm" },
-            { name: "❌ 不能复现 → 回退/调整", value: "retry" },
+            { name: "❌ 不能复现 → 重新生成", value: "retry" },
             { name: "⏭️  跳过", value: "skip" },
           ],
         },
       ]);
 
+      if (action === "retry") {
+        // 重新执行当前步骤
+        return await this.step1_reproduce();
+      }
+
       this.sessionData.mreConfirmed = action === "confirm";
-      return action !== "retry";
+
+      // 如果确认或跳过，询问导航选择
+      if (action === "confirm" || action === "skip") {
+        return await this.askStepNavigation();
+      }
+
+      return "continue";
     } catch (error) {
       spinner.fail(`生成MRE失败: ${error.message}`);
       return false;
@@ -141,7 +202,7 @@ class DebugSession {
       ]);
 
       this.sessionData.selectedHypothesis = hypotheses[selectedHypothesis];
-      return true;
+      return await this.askStepNavigation();
     } catch (error) {
       spinner.fail(`根因分析失败: ${error.message}`);
       return false;
@@ -177,7 +238,12 @@ class DebugSession {
     ]);
 
     this.sessionData.instrumentationPlan = instrumentAction;
-    return instrumentAction !== "skip";
+
+    if (instrumentAction === "skip") {
+      return await this.askStepNavigation("跳过插桩，请选择下一步操作:");
+    }
+
+    return await this.askStepNavigation();
   }
 
   async step4_experiment() {
@@ -216,19 +282,24 @@ class DebugSession {
           message: '是否确认"循环边界错误"为根因?',
           choices: [
             { name: "✅ 确认", value: "confirm" },
-            { name: "❌ 否 → 回退 Step 2", value: "back" },
+            { name: "❌ 否 → 需要重新分析", value: "reanalyze" },
             { name: "⏭️  跳过", value: "skip" },
           ],
         },
       ]);
 
-      if (confirmRootCause === "back") {
-        this.currentStep = 1; // 回退到Step 2
-        return await this.step2_hypothesize();
+      if (confirmRootCause === "reanalyze") {
+        // 返回特殊值，让主循环回退到Step 2
+        return "back";
       }
 
       this.sessionData.rootCauseConfirmed = confirmRootCause === "confirm";
-      return confirmRootCause !== "skip";
+
+      if (confirmRootCause === "confirm" || confirmRootCause === "skip") {
+        return await this.askStepNavigation();
+      }
+
+      return "continue";
     } catch (error) {
       spinner.fail(`实验执行失败: ${error.message}`);
       return false;
@@ -257,18 +328,24 @@ class DebugSession {
         message: "是否应用此补丁?",
         choices: [
           { name: "✅ 确认", value: "confirm" },
-          { name: "❌ 否 → 回退 Step 4", value: "back" },
+          { name: "❌ 否 → 需要重新实验", value: "reexperiment" },
           { name: "⏭️  跳过", value: "skip" },
         ],
       },
     ]);
 
-    if (applyPatch === "back") {
-      return await this.step4_experiment();
+    if (applyPatch === "reexperiment") {
+      // 返回特殊值，让主循环回退到Step 4
+      return "back";
     }
 
     this.sessionData.patchApplied = applyPatch === "confirm";
-    return applyPatch !== "skip";
+
+    if (applyPatch === "confirm" || applyPatch === "skip") {
+      return await this.askStepNavigation();
+    }
+
+    return "continue";
   }
 
   async step6_regression() {
@@ -300,12 +377,16 @@ class DebugSession {
         {
           type: "confirm",
           name: "proceedToFinal",
-          message: "确认进入最后一步?",
+          message: "回归测试通过，确认进入最后一步?",
           default: true,
         },
       ]);
 
-      return proceedToFinal;
+      if (proceedToFinal) {
+        return await this.askStepNavigation();
+      } else {
+        return await this.askStepNavigation("不进入最后一步，请选择操作:");
+      }
     } catch (error) {
       spinner.fail(`回归测试失败: ${error.message}`);
       return false;
@@ -346,7 +427,7 @@ class DebugSession {
 
     console.log(chalk.yellowBright("\n🎉 调试完成！"));
 
-    return true;
+    return await this.askStepNavigation("调试会话已完成，请选择操作:");
   }
 
   generateMarkdownReport(content) {
