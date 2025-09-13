@@ -20,6 +20,27 @@ async def run_step3(code: str, hypothesis: str) -> str:
     print("resp_dict_3:", resp)
     return resp
 
+# def build_step3_prompt(code: str, hypothesis: str) -> str:
+#     return f"""
+# 你是一个调试助手。
+# 用户的代码如下：
+# {code}
+# Step 2 用户选择的假设是: {hypothesis}
+
+# 请生成 Step 3 调试输出，严格遵循下面 JSON 格式：
+# {{
+#   "step": "Step 3/6",
+#   "hypothesis": "{hypothesis}",
+#   "instrumentation_plan": [
+#     "在 loop 入口打印 i, len(list)",
+#     "在 case_003 输入时打印 list 长度",
+#     "在全局变量 X 写入时加断言"
+#   ],
+#   "question": "是否采纳这些插桩？",
+#   "options": {{"1": "全部采纳", "2": "自定义组合上述插桩"}}
+# }}
+# """
+
 def build_step3_prompt(code: str, hypothesis: str) -> str:
     return f"""
 你是一个调试助手。
@@ -27,7 +48,12 @@ def build_step3_prompt(code: str, hypothesis: str) -> str:
 {code}
 Step 2 用户选择的假设是: {hypothesis}
 
-请生成 Step 3 调试输出，严格遵循下面 JSON 格式：
+你的任务：
+1.基于用户代码和假设，生成一个插桩计划 (instrumentation_plan)，用于帮助定位问题。
+2.插桩应与假设相关，比如打印变量值、在关键路径加断言等。
+3.至少生成 2 条插桩建议。
+
+最终必须输出 严格的 JSON 格式, 保持键不变, 不要添加额外解释(instrumentation_plan保持字段名不变, 只替换内容):
 {{
   "step": "Step 3/6",
   "hypothesis": "{hypothesis}",

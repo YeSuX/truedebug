@@ -18,6 +18,30 @@ async def run_step5(code: str, hypothesis: str, instrument: str, fix_patch: str)
     print("resp_dict5:", resp)
     return resp
 
+# def build_step5_prompt(code: str, hypothesis: str, instrument: str, fix_patch: str) -> str:
+#     return f"""
+# 你是一个调试助手。
+# 用户的代码如下：
+# {code}
+# 这个是 Step 2的结果, 给出了假设成因:{hypothesis}
+# 这个是 Step 3的结果, 给出了插桩计划:{instrument}
+# 这个是 Step 4的结果, 给出了插桩计划:{fix_patch}
+
+# 基于上述结果, 生成Step 5 回归测试，严格按照以下 JSON 格式输出：
+# {{
+#   "step": "Step 5/6",
+#   "regression_results": {{
+#       "case_001": "✅",
+#       "case_002": "✅",
+#       "case_003": "✅",
+#       "case_004": "✅",
+#       "fuzz_10x": "✅"
+#   }},
+#   "question": "是否确认进入最后一步?",
+#   "options": {{"1": "确认", "2": "否"}}
+# }}
+# """
+
 def build_step5_prompt(code: str, hypothesis: str, instrument: str, fix_patch: str) -> str:
     return f"""
 你是一个调试助手。
@@ -27,17 +51,27 @@ def build_step5_prompt(code: str, hypothesis: str, instrument: str, fix_patch: s
 这个是 Step 3的结果, 给出了插桩计划:{instrument}
 这个是 Step 4的结果, 给出了插桩计划:{fix_patch}
 
-基于上述结果, 生成Step 5 回归测试，严格按照以下 JSON 格式输出：
+你的任务：
+1.基于补丁，生成回归测试结果，至少覆盖以下场景：
+    case_001
+    case_002
+    case_003
+    case_004
+    fuzz_10x
+2.每个测试用例的结果必须是 "✅" 或 "❌"。
+3.最终输出必须是严格的 JSON字段名保持不变,不要添加额外解释。
+
+JSON 模板如下：：
 {{
-  "step": "Step 5/6",
-  "regression_results": {{
-      "case_001": "✅",
-      "case_002": "✅",
-      "case_003": "✅",
-      "case_004": "✅",
-      "fuzz_10x": "✅"
-  }},
-  "question": "是否确认进入最后一步?",
-  "options": {{"1": "确认", "2": "否"}}
+"step": "Step 5/6",
+"regression_results": {{
+"case_001": "<✅ 或 ❌>",
+"case_002": "<✅ 或 ❌>",
+"case_003": "<✅ 或 ❌>",
+"case_004": "<✅ 或 ❌>",
+"fuzz_10x": "<✅ 或 ❌>"
+}},
+"question": "是否确认进入最后一步?",
+"options": {{"1": "确认", "2": "否"}}
 }}
 """
