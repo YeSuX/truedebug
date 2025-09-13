@@ -389,11 +389,12 @@ class DebugSession {
 
     try {
       // 调用后端API分析根因
-      const hypotheses = await this.apiClient.analyzeRootCause(
-        this.sessionData.bugReport
-      );
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const hypotheses = await this.apiClient.analyzeRootCause({
+        choice: "1",
+      });
       spinner.succeed("已生成候选假设");
+
+      console.log("hypotheses", JSON.stringify(hypotheses));
 
       // 记录假设生成结果
       this.logExperiment(
@@ -415,8 +416,7 @@ class DebugSession {
 
       console.log(chalk.white("候选假设:"));
       hypotheses.forEach((hyp, index) => {
-        const letter = String.fromCharCode(97 + index); // a, b, c...
-        console.log(chalk.yellow(`(${letter}) ${hyp.description}`));
+        console.log(chalk.yellow(`(${hyp.id}) ${hyp.title}`));
         console.log(chalk.gray(`证据: ${hyp.evidence}`));
       });
 
@@ -426,7 +426,7 @@ class DebugSession {
           name: "selectedHypothesis",
           message: "请选择可信假设:",
           choices: hypotheses.map((hyp, index) => ({
-            name: `(${String.fromCharCode(97 + index)}) ${hyp.description}`,
+            name: `(${String.fromCharCode(97 + index)}) ${hyp.title}`,
             value: index,
           })),
         },
@@ -437,12 +437,8 @@ class DebugSession {
       // 记录假设选择决策
       this.logDecision(
         "根因假设选择",
-        hypotheses.map(
-          (h, i) => `(${String.fromCharCode(97 + i)}) ${h.description}`
-        ),
-        `(${String.fromCharCode(97 + selectedHypothesis)}) ${
-          selected.description
-        }`,
+        hypotheses.map((h, i) => `(${h.id}) ${h.title}`),
+        `(${selected.id}) ${selected.title}`,
         `基于证据强度和可能性选择了最有可能的根因假设`
       );
 
@@ -452,7 +448,7 @@ class DebugSession {
       this.logStepDetail(2, "假设成因 - 完成", {
         summary: "根因假设分析完成",
         selectedHypothesis: {
-          description: selected.description,
+          description: selected.title,
           evidence: selected.evidence,
           confidence: "待验证",
         },

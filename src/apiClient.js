@@ -507,10 +507,11 @@ process_items(items)  # 会抛出 IndexError
 
   async analyzeRootCause(bugReport) {
     try {
-      const response = await this.client.post("/api/analyze-root-cause", {
-        bug_report: bugReport,
+      const response = await this.client.post("/step2", {
+        choice: "1",
+        user_id: "1",
       });
-      return response.data.hypotheses;
+      return response.data.result.hypotheses;
     } catch (error) {
       // 如果后端不可用，返回模拟数据
       console.log(chalk.yellow("⚠️  使用模拟数据 (后端服务不可用)"));
