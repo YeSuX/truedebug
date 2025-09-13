@@ -1,0 +1,21 @@
+{
+  "title": "IndexError: list index out of range",
+  "description": "程序在处理列表时出现索引越界错误",
+  "code_file": "buggy.py",
+  "error_message": "IndexError: list index out of range",
+  "stack_trace": [
+    "File \"buggy.py\", line 42, in process_items",
+    "    item = items[i]",
+    "IndexError: list index out of range"
+  ],
+  "test_cases": [
+    "case_001",
+    "case_002",
+    "case_003",
+    "case_004"
+  ],
+  "environment": {
+    "python_version": "3.9.0",
+    "os": "Linux"
+  }
+}

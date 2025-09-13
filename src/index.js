@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-const { Command } = require("commander");
-const chalk = require("chalk");
-const figlet = require("figlet");
-const boxen = require("boxen");
-const DebugSession = require("./debugSession");
+import { Command } from "commander";
+import chalk from "chalk";
+import figlet from "figlet";
+import boxen from "boxen";
+import fs from "fs";
+import path from "path";
+import DebugSession from "./debugSession.js";
 
 const program = new Command();
 
@@ -59,9 +61,6 @@ program
   .command("init")
   .description("初始化示例bug报告")
   .action(() => {
-    const fs = require("fs");
-    const path = require("path");
-
     const exampleBugReport = {
       title: "IndexError: list index out of range",
       description: "程序在处理列表时出现索引越界错误",

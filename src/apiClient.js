@@ -1,5 +1,5 @@
-const axios = require("axios");
-const chalk = require("chalk");
+import axios from "axios";
+import chalk from "chalk";
 
 class ApiClient {
   constructor(baseURL) {
@@ -200,4 +200,4 @@ process_items(items)  # 会抛出 IndexError
   }
 }
 
-module.exports = ApiClient;
+export default ApiClient;

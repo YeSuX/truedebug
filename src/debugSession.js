@@ -1,10 +1,10 @@
-const inquirer = require("inquirer");
-const chalk = require("chalk");
-const ora = require("ora");
-const Table = require("cli-table3");
-const fs = require("fs");
-const path = require("path");
-const ApiClient = require("./apiClient");
+import inquirer from "inquirer";
+import chalk from "chalk";
+import ora from "ora";
+import Table from "cli-table3";
+import fs from "fs";
+import path from "path";
+import ApiClient from "./apiClient.js";
 
 class DebugSession {
   constructor(options) {
@@ -376,4 +376,4 @@ ${content.时间戳}
   }
 }
 
-module.exports = DebugSession;
+export default DebugSession;

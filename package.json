@@ -2,6 +2,7 @@
   "name": "vibestepper-cli",
   "version": "1.0.0",
   "description": "协议化调试工具 - 终端交互式调试助手",
+  "type": "module",
   "main": "src/index.js",
   "bin": {
     "vibestepper": "./src/index.js"
