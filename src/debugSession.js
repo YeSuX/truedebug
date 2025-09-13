@@ -1009,7 +1009,7 @@ ${experimentResults}
 ---
 
 **报告生成时间**: ${content.时间戳}  
-**调试工具**: VibeStepper v1.0  
+**调试工具**: VibeDebug v1.0  
 **报告类型**: 协议化调试报告
 `;
   }

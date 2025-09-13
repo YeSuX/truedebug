@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VibeStepper 后端服务
+VibeDebug 后端服务
 协议化调试工具的API服务端
 """
 
@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="VibeStepper API",
+    title="VibeDebug API",
     description="协议化调试工具后端服务",
     version="1.0.0"
 )
@@ -74,7 +74,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "service": "VibeStepper Backend"
+        "service": "VibeDebug Backend"
     }
 
 # API端点实现
@@ -345,7 +345,7 @@ async def run_regression(request: RunRegressionRequest):
 
 # 启动服务器
 if __name__ == "__main__":
-    print("🚀 启动 VibeStepper 后端服务...")
+    print("🚀 启动 VibeDebug 后端服务...")
     print("📡 API文档: http://localhost:8000/docs")
     print("🔍 健康检查: http://localhost:8000/health")
     

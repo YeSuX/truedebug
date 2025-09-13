@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# VibeStepper 演示启动脚本
+# VibeDebug 演示启动脚本
 
-echo "🌈 VibeStepper 协议化调试工具演示"
+echo "🌈 VibeDebug 协议化调试工具演示"
 echo "=================================="
 
 # 检查Node.js
@@ -55,14 +55,14 @@ npm link
 
 # 初始化演示数据
 echo "📋 初始化演示数据..."
-vibestepper init
+vibedebug init
 
 echo ""
 echo "🎉 演示环境准备完成！"
 echo ""
 echo "📖 使用方法："
-echo "  1. 运行演示: vibestepper debug bug_report.json"
-echo "  2. 或使用演示文件: vibestepper debug demo/bug_report.json"
+echo "  1. 运行演示: vibedebug debug bug_report.json"
+echo "  2. 或使用演示文件: vibedebug debug demo/bug_report.json"
 echo "  3. 查看API文档: http://localhost:8000/docs"
 echo ""
 echo "🔍 演示文件："
@@ -78,11 +78,11 @@ read -p "按回车键开始演示，或按 Ctrl+C 退出..."
 
 # 运行演示
 echo "🚀 开始调试演示..."
-vibestepper debug demo/bug_report.json
+vibedebug debug demo/bug_report.json
 
 # 清理
 echo ""
 echo "🧹 清理后台进程..."
 kill $BACKEND_PID 2>/dev/null
 
-echo "👋 演示结束，感谢使用 VibeStepper！"
+echo "👋 演示结束，感谢使用 VibeDebug"

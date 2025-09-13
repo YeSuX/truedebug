@@ -1,8 +1,8 @@
-# 🌈 VibeStepper - 协议化调试工具
+# 🌈 VibeDebug - 协议化调试工具
 
 > 让调试过程可验证、可追溯、可复现
 
-VibeStepper 是一个创新的 AI 驱动调试工具，通过 7 步协议化流程，将传统的"黑箱调试"转变为"透明化、可验证"的调试体验。
+VibeDebug 是一个创新的 AI 驱动调试工具，通过 7 步协议化流程，将传统的"黑箱调试"转变为"透明化、可验证"的调试体验。
 
 ## ✨ 核心特性
 
@@ -67,7 +67,7 @@ cp env.example .env
 export GITHUB_TOKEN=your_personal_access_token_here
 
 # 方法3: 在命令行中指定
-vibestepper debug <github-url> --token your_token_here
+vibedebug debug <github-url> --token your_token_here
 ```
 
 **获取 GitHub Token 的步骤：**
@@ -102,16 +102,16 @@ npm link
 
 ```bash
 # 初始化示例bug报告
-vibestepper init
+vibedebug init
 
 # 开始调试会话 (使用本地 JSON 文件)
-vibestepper debug bug_report.json
+vibedebug debug bug_report.json
 
 # 或使用演示文件
-vibestepper debug demo/bug_report.json
+vibedebug debug demo/bug_report.json
 
 # 从 GitHub issue 导入并调试 (需要配置 .env 文件)
-vibestepper debug https://github.com/owner/repo/issues/123
+vibedebug debug https://github.com/owner/repo/issues/123
 ```
 
 ## 🔄 7 步调试流程
@@ -165,17 +165,17 @@ vibestepper debug https://github.com/owner/repo/issues/123
 
 ```bash
 # 调试生产环境bug
-vibestepper debug production_bug.json
+vibedebug debug production_bug.json
 
 # 指定后端服务地址
-vibestepper debug bug_report.json --server http://your-server:8000
+vibedebug debug bug_report.json --server http://your-server:8000
 ```
 
 ### 教学演示
 
 ```bash
 # 快速演示调试流程
-vibestepper debug demo/bug_report.json
+vibedebug debug demo/bug_report.json
 
 # 查看生成的调试报告
 cat debug_report_*.md
@@ -185,7 +185,7 @@ cat debug_report_*.md
 
 ```bash
 # 在CI流程中运行调试分析
-vibestepper debug ci_bug_report.json --non-interactive
+vibedebug debug ci_bug_report.json --non-interactive
 ```
 
 ## 📊 API 接口
@@ -207,7 +207,7 @@ API 文档: `http://localhost:8000/docs`
 ### CLI 选项
 
 ```bash
-vibestepper debug <bug-report> [options]
+vibedebug debug <bug-report> [options]
 
 Options:
   -s, --server <url>    后端服务地址 (默认: http://localhost:8000)

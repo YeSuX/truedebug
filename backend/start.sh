@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# VibeStepper 后端启动脚本
+# VibeDebug 后端启动脚本
 
-echo "🚀 启动 VibeStepper 后端服务..."
+echo "🚀 启动 VibeDebug 后端服务..."
 
 # 检查Python是否安装
 if ! command -v python3 &> /dev/null; then

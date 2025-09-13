@@ -92,7 +92,7 @@ class ApiClient {
       // 构建请求头，包含认证信息
       const headers = {
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "VibeStepper-Debug-Tool",
+        "User-Agent": "VibeDebug-Tool",
       };
 
       // 如果有 GitHub token，添加认证头
@@ -226,7 +226,7 @@ class ApiClient {
       // 构建请求头，包含认证信息
       const headers = {
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "VibeStepper-Debug-Tool",
+        "User-Agent": "VibeDebug-Tool",
         "Content-Type": "application/json",
       };
 

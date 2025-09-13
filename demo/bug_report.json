@@ -29,6 +29,6 @@
   "actual_behavior": "程序在处理最后一个项目后尝试访问不存在的索引，导致崩溃",
   "severity": "high",
   "priority": "urgent",
-  "reported_by": "VibeStepper Demo",
+  "reported_by": "VibeDebug Demo",
   "reported_at": "2025-09-13T10:30:00Z"
 }

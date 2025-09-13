@@ -2,11 +2,11 @@
 
 ⸻
 
-🌈 VibeStepper CLI 交互路径
+🌈 VibeDebug CLI 交互路径
 
 启动
 
-$ vibestepper debug bug_report.json
+$ vibedebug debug bug_report.json
 
 ⸻
 

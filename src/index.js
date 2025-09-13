@@ -13,7 +13,7 @@ const program = new Command();
 // 显示欢迎信息
 function showWelcome() {
   console.log(
-    chalk.cyan(figlet.textSync("VibeStepper", { horizontalLayout: "full" }))
+    chalk.cyan(figlet.textSync("VibeDebug", { horizontalLayout: "full" }))
   );
   console.log(
     boxen(
@@ -30,7 +30,7 @@ function showWelcome() {
 }
 
 program
-  .name("vibestepper")
+  .name("vibedebug")
   .description("协议化调试工具 - 终端交互式调试助手")
   .version("1.0.0");
 
@@ -48,9 +48,7 @@ program
       console.error(chalk.red("❌ 错误: 请提供有效的 GitHub issue URL"));
       console.log(chalk.gray("使用示例:"));
       console.log(
-        chalk.gray(
-          "  vibestepper debug https://github.com/owner/repo/issues/123"
-        )
+        chalk.gray("  vibedebug debug https://github.com/owner/repo/issues/123")
       );
       process.exit(1);
     }
