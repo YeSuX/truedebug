@@ -16,6 +16,7 @@ class DebugSession {
     this.currentStep = 1;
     this.totalSteps = 7;
     this.sessionData = {};
+    this.selected = null;
 
     // 详细调试日志记录
     this.debugLog = {
@@ -225,6 +226,69 @@ class DebugSession {
     });
   }
 
+  // 美化显示diff补丁
+  displayPrettyDiff(patch) {
+    if (!patch) {
+      console.log(chalk.yellow("⚠️  无补丁信息"));
+      return;
+    }
+
+    console.log(chalk.bold.white("📋 代码修复方案:"));
+    console.log();
+
+    // 显示文件头部
+    const fileName = patch.file_path || "buggy.py";
+    console.log(chalk.bold.blue(`--- ${fileName}`));
+    console.log(chalk.bold.blue(`+++ ${fileName} (修复后)`));
+
+    // 显示差异头部
+    console.log(chalk.cyan("@@ -12,7 +12,7 @@"));
+
+    // 显示上下文行（基于实际bug情况）
+    console.log(chalk.gray('     print(f"开始处理 {len(items)} 个项目")'));
+    console.log(chalk.gray(" "));
+    console.log(
+      chalk.gray("     # 这里有bug: range(len(items)+1) 会导致索引越界")
+    );
+
+    // 显示删除的行（红色背景）
+    if (patch.old_code) {
+      console.log(chalk.bgRed.white(`-    ${patch.old_code}`));
+    }
+
+    // 显示添加的行（绿色背景）
+    if (patch.new_code) {
+      console.log(chalk.bgGreen.black(`+    ${patch.new_code}`));
+    }
+
+    // 显示更多上下文
+    console.log(chalk.gray('         print(f"正在处理第 {i+1} 个项目...")'));
+    console.log(
+      chalk.gray(
+        "         item = items[i]  # 当 i == len(items) 时会抛出 IndexError"
+      )
+    );
+    console.log(chalk.gray('         print(f"项目内容: {item}")'));
+
+    console.log();
+
+    // 显示修改摘要
+    console.log(chalk.bold.yellow("🔧 修改摘要:"));
+    if (patch.old_code && patch.new_code) {
+      console.log(chalk.red(`   - ${patch.old_code}`));
+      console.log(chalk.green(`   + ${patch.new_code}`));
+    }
+
+    // 提供修复说明
+    console.log();
+    console.log(chalk.bold.cyan("📝 修复说明:"));
+    console.log(chalk.dim("   • 移除了 +1 避免索引越界"));
+    console.log(chalk.dim("   • 确保循环索引在有效范围内"));
+    console.log(
+      chalk.dim("   • 修复了 IndexError: list index out of range 错误")
+    );
+  }
+
   async askStepNavigation(message = "请选择下一步操作:") {
     const choices = [{ name: "✅ 继续下一步", value: "continue" }];
 
@@ -267,7 +331,7 @@ class DebugSession {
         user_id: "1",
       });
 
-      console.log(JSON.stringify(mreResult));
+      // console.log(JSON.stringify(mreResult));
 
       spinner.succeed(`已生成可复现用例 ${mreResult.result.mre_file}`);
 
@@ -390,11 +454,13 @@ class DebugSession {
     try {
       // 调用后端API分析根因
       const hypotheses = await this.apiClient.analyzeRootCause({
+        code: this.sessionData.bugReport,
+        user_id: "1",
         choice: "1",
       });
       spinner.succeed("已生成候选假设");
 
-      console.log("hypotheses", JSON.stringify(hypotheses));
+      // console.log("hypotheses", JSON.stringify(hypotheses));
 
       // 记录假设生成结果
       this.logExperiment(
@@ -407,7 +473,7 @@ class DebugSession {
           hypothesesCount: hypotheses.length,
           hypotheses: hypotheses.map((h, i) => ({
             id: String.fromCharCode(97 + i),
-            description: h.description,
+            description: h?.title || hyp?.description,
             evidence: h.evidence,
           })),
         },
@@ -416,7 +482,9 @@ class DebugSession {
 
       console.log(chalk.white("候选假设:"));
       hypotheses.forEach((hyp, index) => {
-        console.log(chalk.yellow(`(${hyp.id}) ${hyp.title}`));
+        console.log(
+          chalk.yellow(`(${hyp.id}) ${hyp?.title || hyp?.description}`)
+        );
         console.log(chalk.gray(`证据: ${hyp.evidence}`));
       });
 
@@ -426,19 +494,22 @@ class DebugSession {
           name: "selectedHypothesis",
           message: "请选择可信假设:",
           choices: hypotheses.map((hyp, index) => ({
-            name: `(${String.fromCharCode(97 + index)}) ${hyp.title}`,
+            name: `(${String.fromCharCode(97 + index)}) ${
+              hyp?.title || hyp?.description
+            }`,
             value: index,
           })),
         },
       ]);
 
       const selected = hypotheses[selectedHypothesis];
+      this.selected = selected;
 
       // 记录假设选择决策
       this.logDecision(
         "根因假设选择",
         hypotheses.map((h, i) => `(${h.id}) ${h.title}`),
-        `(${selected.id}) ${selected.title}`,
+        `(${selected.id}) ${selected?.title || selected?.description}`,
         `基于证据强度和可能性选择了最有可能的根因假设`
       );
 
@@ -448,7 +519,7 @@ class DebugSession {
       this.logStepDetail(2, "假设成因 - 完成", {
         summary: "根因假设分析完成",
         selectedHypothesis: {
-          description: selected.title,
+          description: selected?.title || selected?.description,
           evidence: selected.evidence,
           confidence: "待验证",
         },
@@ -479,14 +550,20 @@ class DebugSession {
       objective: "在不影响程序正常运行的情况下收集关键调试信息",
       approach: "基于选定的根因假设设计针对性的插桩点",
       hypothesis:
-        this.sessionData.selectedHypothesis?.description || "未选择假设",
+        this.selected.selectedHypothesis?.title ||
+        this.selected.selectedHypothesis?.description ||
+        "未选择假设",
     });
 
-    const instrumentations = [
-      "1. 在 loop 入口打印 i, len(list)",
-      "2. 在 case_003 输入时打印 list 长度",
-      "3. 在全局变量 X 写入时加断言",
-    ];
+    const result = await this.apiClient.generateInstrumentation({
+      choice: this.selected.id,
+      code: this.sessionData.bugReport,
+      user_id: "1",
+    });
+
+    // console.log("result", JSON.stringify(result));
+
+    const instrumentations = result;
 
     console.log(chalk.white("建议插桩:"));
     instrumentations.forEach(async (inst) => {
@@ -500,8 +577,6 @@ class DebugSession {
         message: "是否采纳?",
         choices: [
           { name: "✅ 全部采纳", value: "all" },
-          { name: "🔸 仅选 1,2", value: "partial" },
-          { name: "✏️  自定义", value: "custom" },
           { name: "⏭️  跳过", value: "skip" },
         ],
       },
@@ -510,19 +585,10 @@ class DebugSession {
     // 记录插桩决策
     this.logDecision(
       "插桩计划选择",
-      [
-        "全部采纳 - 使用所有建议的插桩点",
-        "仅部1,2 - 只使用部分插桩点",
-        "自定义 - 手动设计插桩方案",
-        "跳过 - 不使用插桩直接进入实验",
-      ],
+      ["全部采纳 - 使用所有建议的插桩点", "跳过 - 不使用插桩直接进入实验"],
       instrumentAction,
       instrumentAction === "all"
         ? "采用全部插桩点以获取最全面的调试信息"
-        : instrumentAction === "partial"
-        ? "采用部分插桩点平衡效率和信息量"
-        : instrumentAction === "custom"
-        ? "需要更精细的插桩控制"
         : "跳过插桩直接进入实验阶段"
     );
 
@@ -543,106 +609,106 @@ class DebugSession {
     return await this.askStepNavigation();
   }
 
-  async step4_experiment() {
-    this.showStepHeader("实验执行", "");
+  // async step4_experiment() {
+  //   this.showStepHeader("实验执行", "");
 
-    // 记录实验开始
-    this.logStepDetail(4, "实验执行", {
-      summary: "在控制环境中执行实验验证假设",
-      hypothesis:
-        this.sessionData.selectedHypothesis?.description || "未选择假设",
-      instrumentationPlan: this.sessionData.instrumentationPlan || "未制定",
-      objective: "通过实际执行收集证据验证或反驳假设",
-    });
+  //   // 记录实验开始
+  //   this.logStepDetail(4, "实验执行", {
+  //     summary: "在控制环境中执行实验验证假设",
+  //     hypothesis:
+  //       this.sessionData.selectedHypothesis?.description || "未选择假设",
+  //     instrumentationPlan: this.sessionData.instrumentationPlan || "未制定",
+  //     objective: "通过实际执行收集证据验证或反驳假设",
+  //   });
 
-    const spinner = ora("在沙箱运行 test_mre.py + 插桩...").start();
+  //   const spinner = ora("在沙箱运行 test_mre.py + 插桩...").start();
 
-    try {
-      // 模拟实验执行
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      spinner.succeed("实验执行完成");
+  //   try {
+  //     // 模拟实验执行
+  //     await new Promise((resolve) => setTimeout(resolve, 2000));
+  //     spinner.succeed("实验执行完成");
 
-      console.log(chalk.white("输出片段:"));
-      console.log(chalk.yellow("[LOG] i=5, len(list)=5 → 出现 IndexError"));
-      console.log(chalk.green("[ASSERT] 全局变量 X 正常"));
+  //     console.log(chalk.white("输出片段:"));
+  //     console.log(chalk.yellow("[LOG] i=5, len(list)=5 → 出现 IndexError"));
+  //     console.log(chalk.green("[ASSERT] 全局变量 X 正常"));
 
-      // 显示覆盖率表格
-      const table = new Table({
-        head: ["测试用例", "状态", "覆盖率"],
-        colWidths: [15, 10, 10],
-      });
+  //     // 显示覆盖率表格
+  //     const table = new Table({
+  //       head: ["测试用例", "状态", "覆盖率"],
+  //       colWidths: [15, 10, 10],
+  //     });
 
-      table.push(
-        ["case_001", chalk.green("✅"), "85%"],
-        ["case_002", chalk.green("✅"), "90%"],
-        ["case_003", chalk.red("❌"), "75%"],
-        ["case_004", chalk.green("✅"), "88%"]
-      );
+  //     table.push(
+  //       ["case_001", chalk.green("✅"), "85%"],
+  //       ["case_002", chalk.green("✅"), "90%"],
+  //       ["case_003", chalk.red("❌"), "75%"],
+  //       ["case_004", chalk.green("✅"), "88%"]
+  //     );
 
-      console.log("\n" + table.toString());
+  //     console.log("\n" + table.toString());
 
-      const { confirmRootCause } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "confirmRootCause",
-          message: '是否确认"循环边界错误"为根因?',
-          choices: [
-            { name: "✅ 确认", value: "confirm" },
-            { name: "❌ 否 → 需要重新分析", value: "reanalyze" },
-            { name: "⏭️  跳过", value: "skip" },
-          ],
-        },
-      ]);
+  //     const { confirmRootCause } = await inquirer.prompt([
+  //       {
+  //         type: "list",
+  //         name: "confirmRootCause",
+  //         message: '是否确认"循环边界错误"为根因?',
+  //         choices: [
+  //           { name: "✅ 确认", value: "confirm" },
+  //           { name: "❌ 否 → 需要重新分析", value: "reanalyze" },
+  //           { name: "⏭️  跳过", value: "skip" },
+  //         ],
+  //       },
+  //     ]);
 
-      if (confirmRootCause === "reanalyze") {
-        // 返回特殊值，让主循环回退到Step 2
-        return "back";
-      }
+  //     if (confirmRootCause === "reanalyze") {
+  //       // 返回特殊值，让主循环回退到Step 2
+  //       return "back";
+  //     }
 
-      // 记录根因确认决策
-      this.logDecision(
-        "根因确认",
-        [
-          "确认 - 实验结果支持假设",
-          "否定 - 需要重新分析假设",
-          "跳过 - 直接进入下一步骤",
-        ],
-        confirmRootCause,
-        confirmRootCause === "confirm"
-          ? "实验证据强有力地支持了所选假设"
-          : confirmRootCause === "reanalyze"
-          ? "实验结果与预期不符，需要重新考虑其他假设"
-          : "选择跳过根因确认步骤"
-      );
+  //     // 记录根因确认决策
+  //     this.logDecision(
+  //       "根因确认",
+  //       [
+  //         "确认 - 实验结果支持假设",
+  //         "否定 - 需要重新分析假设",
+  //         "跳过 - 直接进入下一步骤",
+  //       ],
+  //       confirmRootCause,
+  //       confirmRootCause === "confirm"
+  //         ? "实验证据强有力地支持了所选假设"
+  //         : confirmRootCause === "reanalyze"
+  //         ? "实验结果与预期不符，需要重新考虑其他假设"
+  //         : "选择跳过根因确认步骤"
+  //     );
 
-      this.sessionData.rootCauseConfirmed = confirmRootCause === "confirm";
+  //     this.sessionData.rootCauseConfirmed = confirmRootCause === "confirm";
 
-      // 记录步骤完成
-      this.logStepDetail(4, "实验执行 - 完成", {
-        summary: `实验执行完成 - ${confirmRootCause}`,
-        experimentResults: {
-          logOutput: "i=5, len(list)=5 → 出现 IndexError",
-          coverageData: "case_003 失败，其他通过",
-          rootCauseConfirmed: confirmRootCause === "confirm",
-        },
-        nextStep:
-          confirmRootCause === "confirm"
-            ? "制定修复方案"
-            : confirmRootCause === "reanalyze"
-            ? "重新分析假设"
-            : "跳过到下一步",
-      });
+  //     // 记录步骤完成
+  //     this.logStepDetail(4, "实验执行 - 完成", {
+  //       summary: `实验执行完成 - ${confirmRootCause}`,
+  //       experimentResults: {
+  //         logOutput: "i=5, len(list)=5 → 出现 IndexError",
+  //         coverageData: "case_003 失败，其他通过",
+  //         rootCauseConfirmed: confirmRootCause === "confirm",
+  //       },
+  //       nextStep:
+  //         confirmRootCause === "confirm"
+  //           ? "制定修复方案"
+  //           : confirmRootCause === "reanalyze"
+  //           ? "重新分析假设"
+  //           : "跳过到下一步",
+  //     });
 
-      if (confirmRootCause === "confirm" || confirmRootCause === "skip") {
-        return await this.askStepNavigation();
-      }
+  //     if (confirmRootCause === "confirm" || confirmRootCause === "skip") {
+  //       return await this.askStepNavigation();
+  //     }
 
-      return "continue";
-    } catch (error) {
-      spinner.fail(`实验执行失败: ${error.message}`);
-      return false;
-    }
-  }
+  //     return "continue";
+  //   } catch (error) {
+  //     spinner.fail(`实验执行失败: ${error.message}`);
+  //     return false;
+  //   }
+  // }
 
   async step5_patch() {
     this.showStepHeader("最小修复", "diff 视图");
@@ -654,19 +720,23 @@ class DebugSession {
         this.sessionData.selectedHypothesis?.description || "未确认根因",
       objective: "以最小的代码变更解决问题，减少引入新bug的风险",
     });
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    console.log(chalk.white("--- buggy.py"));
-    console.log(chalk.white("+++ fixed.py"));
-    console.log(chalk.cyan("@@ -40,7 +40,7 @@"));
-    console.log();
-    console.log(chalk.red("- for i in range(len(items)+1):"));
-    console.log(chalk.green("+ for i in range(len(items)):"));
+    const result = await this.apiClient.runExperiment({
+      choice: "1",
+      code: this.sessionData.bugReport,
+      user_id: "1",
+    });
+
+    // console.log("第四部 result", JSON.stringify(result));
+
+    // 美化显示diff
+    this.displayPrettyDiff(result.patch);
     console.log();
 
     console.log(chalk.white("影响范围:"));
-    console.log(chalk.gray("- 单元测试 case_001 ~ case_004"));
-    console.log(chalk.gray("- 下游函数 process_items()"));
+    result.impact_scope.forEach(async (scope) => {
+      console.log(chalk.gray(scope));
+    });
 
     const { applyPatch } = await inquirer.prompt([
       {
@@ -742,45 +812,22 @@ class DebugSession {
     const spinner = ora("运行回归测试...").start();
 
     try {
+      const result = await this.apiClient.generatePatch({
+        choice: "1",
+        code: this.sessionData.bugReport,
+        user_id: "1",
+      });
+
+      console.log("第5部 result", JSON.stringify(result));
       // 模拟回归测试
-      await new Promise((resolve) => setTimeout(resolve, 3000));
       spinner.succeed("回归测试完成");
 
       console.log(chalk.white("运行结果:"));
-      const testResults = [
-        "case_001: ✅",
-        "case_002: ✅",
-        "case_003: ✅",
-        "case_004: ✅",
-        "fuzz_10x: ✅",
-      ];
 
-      testResults.forEach((result) => {
-        console.log(chalk.green(result));
+      // 遍历对象的 key 和 value
+      Object.entries(result).forEach(([key, value]) => {
+        console.log(chalk.green(`${key}: ${value}`));
       });
-
-      console.log(chalk.white("\n矩阵: 全部通过 (5/5)"));
-
-      // 记录测试结果
-      this.logExperiment(
-        "回归测试",
-        {
-          patchStatus: this.sessionData.patchApplied ? "已应用" : "未应用",
-          testSuite: [
-            "case_001",
-            "case_002",
-            "case_003",
-            "case_004",
-            "fuzz_10x",
-          ],
-        },
-        {
-          results: testResults,
-          passRate: "5/5 (100%)",
-          status: "全部通过",
-        },
-        "回归测试全部通过，确认修复成功且未引入新问题"
-      );
 
       const { proceedToFinal } = await inquirer.prompt([
         {
@@ -876,6 +923,15 @@ class DebugSession {
     let localSaved = false;
     let githubSubmitted = false;
 
+    const result = await this.apiClient.runRegressionTest({
+      user_id: "1",
+    });
+
+    // console.log("最后一步 result", JSON.stringify(result));
+
+    // 转换结果为markdown格式
+    const markdownReport = this.convertResultToMarkdown(result);
+
     // 保存到本地文件
     if (submitAction === "local" || submitAction === "both") {
       try {
@@ -883,7 +939,7 @@ class DebugSession {
           .toISOString()
           .split("T")[0]
           .replace(/-/g, "")}.md`;
-        fs.writeFileSync(reportFileName, reportMarkdown);
+        fs.writeFileSync(reportFileName, markdownReport);
         console.log(chalk.green(`✅ 已保存到本地: ${reportFileName}`));
         localSaved = true;
       } catch (error) {
@@ -894,10 +950,11 @@ class DebugSession {
     // 提交到 GitHub
     if (submitAction === "github" || submitAction === "both") {
       try {
-        const spinner = ora("正在提交调试报告到 GitHub issue...").start();
+        const spinner = ora("正在提交调试报告...").start();
+        // const spinner = ora("正在提交调试报告到 GitHub issue...").start();
         await this.apiClient.postCommentToGitHubIssue(
           this.githubUrl,
-          reportMarkdown
+          markdownReport
         );
         spinner.succeed("成功提交调试报告到 GitHub issue");
         githubSubmitted = true;
@@ -1075,6 +1132,185 @@ ${experimentResults}
 **调试工具**: VibeDebug v1.0  
 **报告类型**: 协议化调试报告
 `;
+  }
+
+  // 将result对象转换为markdown格式
+  convertResultToMarkdown(result) {
+    if (!result || !result.result) {
+      console.log("错误: 无效的result对象");
+      return "# 调试报告\n\n未能获取有效的调试结果。";
+    }
+
+    const data = result.result;
+    const summary = data.summary || {};
+
+    // console.log("data对象:", JSON.stringify(data, null, 2));
+    // console.log("summary对象:", JSON.stringify(summary, null, 2));
+
+    let markdown = "# 调试报告\n\n";
+
+    // 添加步骤和总体状态
+    if (data.step) {
+      markdown += `**当前进度**: ${data.step}\n\n`;
+    }
+
+    // Step 1: 最小复现用例
+    if (summary.step1_minimal_case) {
+      const step1 = summary.step1_minimal_case;
+      markdown += "## 第一步：最小复现用例 (Step 1/6)\n";
+      markdown += `- **文件**: \`${step1.mre_file || "N/A"}\`\n`;
+      if (step1.run_result) {
+        markdown += `- **运行结果**: ${step1.run_result}\n`;
+      }
+      if (step1.question) {
+        markdown += `- **确认问题**: ${step1.question}\n`;
+      }
+      markdown += "\n";
+    }
+
+    // Step 2: 问题假设
+    if (summary.step2_hypothesis) {
+      const step2 = summary.step2_hypothesis;
+      markdown += "## 第二步：问题假设 (Step 2/6)\n";
+      if (step2.hypothesis) {
+        let hyp;
+        try {
+          hyp =
+            typeof step2.hypothesis === "string"
+              ? JSON.parse(step2.hypothesis)
+              : step2.hypothesis;
+        } catch (error) {
+          // console.log("解析 step2.hypothesis JSON 时出错:", error.message);
+          // console.log("原始数据:", step2.hypothesis);
+          hyp = {
+            id: "N/A",
+            title: step2.hypothesis.toString(),
+            evidence: "N/A",
+          };
+        }
+        markdown += `- **假设ID**: ${hyp.id || "N/A"}\n`;
+        markdown += `- **假设标题**: ${hyp.title || "N/A"}\n`;
+        markdown += `- **证据**: ${hyp.evidence || "N/A"}\n`;
+      }
+      markdown += "\n";
+    }
+
+    // Step 3: 插桩计划
+    if (summary.step3_instrument_plan) {
+      const step3 = summary.step3_instrument_plan;
+      markdown += "## 第三步：插桩计划 (Step 3/6)\n";
+      if (step3.hypothesis) {
+        let hyp;
+        try {
+          hyp =
+            typeof step3.hypothesis === "string"
+              ? JSON.parse(step3.hypothesis)
+              : step3.hypothesis;
+        } catch (error) {
+          // console.log("解析 step3.hypothesis JSON 时出错:", error.message);
+          // console.log("原始数据:", step3.hypothesis);
+          hyp = { title: step3.hypothesis.toString() };
+        }
+        markdown += `**当前假设**: ${hyp.title || "N/A"}\n\n`;
+      }
+      if (
+        step3.instrumentation_plan &&
+        Array.isArray(step3.instrumentation_plan)
+      ) {
+        markdown += "**插桩方案**:\n";
+        step3.instrumentation_plan.forEach((plan, index) => {
+          markdown += `${index + 1}. ${plan}\n`;
+        });
+      }
+      if (step3.question) {
+        markdown += `\n**决策**: ${step3.question}\n`;
+      }
+      markdown += "\n";
+    }
+
+    // Step 4: 修复补丁
+    if (summary.step4_fix_patch) {
+      const step4 = summary.step4_fix_patch;
+      markdown += "## 第四步：修复补丁 (Step 4/6)\n";
+      if (step4.patch) {
+        markdown += "**修复方案**:\n";
+        markdown += "```diff\n";
+        markdown += step4.patch;
+        markdown += "\n```\n\n";
+      }
+      if (step4.impact_scope && Array.isArray(step4.impact_scope)) {
+        markdown += "**影响范围**:\n";
+        step4.impact_scope.forEach((scope) => {
+          markdown += `- ${scope}\n`;
+        });
+      }
+      if (step4.question) {
+        markdown += `\n**决策**: ${step4.question}\n`;
+      }
+      markdown += "\n";
+    }
+
+    // Step 5: 回归测试
+    if (summary.step5_regression) {
+      const step5 = summary.step5_regression;
+      markdown += "## 第五步：回归测试 (Step 5/6)\n";
+      if (step5.regression_results) {
+        markdown += "**测试结果**:\n";
+        Object.entries(step5.regression_results).forEach(
+          ([testCase, result]) => {
+            const status = result === "✅" ? "✅ 通过" : "❌ 失败";
+            markdown += `- ${testCase}: ${status}\n`;
+          }
+        );
+      }
+      if (step5.question) {
+        markdown += `\n**决策**: ${step5.question}\n`;
+      }
+      markdown += "\n";
+    }
+
+    // 添加总结
+    markdown += "## 调试总结\n";
+    if (summary.step2_hypothesis && summary.step2_hypothesis.hypothesis) {
+      let hyp;
+      try {
+        hyp =
+          typeof summary.step2_hypothesis.hypothesis === "string"
+            ? JSON.parse(summary.step2_hypothesis.hypothesis)
+            : summary.step2_hypothesis.hypothesis;
+      } catch (error) {
+        // console.log("解析总结中的hypothesis JSON 时出错:", error.message);
+        // console.log("原始数据:", summary.step2_hypothesis.hypothesis);
+        hyp = { title: summary.step2_hypothesis.hypothesis.toString() };
+      }
+      markdown += `**问题**: ${hyp.title || "N/A"}\n\n`;
+    }
+
+    if (summary.step4_fix_patch && summary.step4_fix_patch.patch) {
+      markdown += "**解决方案**: 已应用代码补丁修复问题。\n\n";
+    }
+
+    if (
+      summary.step5_regression &&
+      summary.step5_regression.regression_results
+    ) {
+      const allPassed = Object.values(
+        summary.step5_regression.regression_results
+      ).every((result) => result === "✅");
+      markdown += `**验证**: ${
+        allPassed
+          ? "通过全面的回归测试，确认修复有效。"
+          : "回归测试中发现问题，需要进一步调查。"
+      }\n\n`;
+    }
+
+    // 添加时间戳
+    markdown += "---\n";
+    markdown += `**报告生成时间**: ${new Date().toLocaleString("zh-CN")}\n`;
+    markdown += "**调试工具**: TrueDebug v1.0\n";
+    markdown += "**报告类型**: 动态调试报告\n";
+
+    return markdown;
   }
 }
 

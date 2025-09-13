@@ -28,7 +28,7 @@ class ApiClient {
 
     this.client = axios.create({
       baseURL: baseURL,
-      timeout: 30000,
+      timeout: 60000,
       headers: {
         "Content-Type": "application/json",
       },
@@ -482,10 +482,7 @@ class ApiClient {
 
   async generateMRE(bugReport) {
     try {
-      const response = await this.client.post("/step1", {
-        bug_report: bugReport,
-        user_id: "1",
-      });
+      const response = await this.client.post("/step1", bugReport);
       return response.data;
     } catch (error) {
       // 如果后端不可用，返回模拟数据
@@ -507,10 +504,7 @@ process_items(items)  # 会抛出 IndexError
 
   async analyzeRootCause(bugReport) {
     try {
-      const response = await this.client.post("/step2", {
-        choice: "1",
-        user_id: "1",
-      });
+      const response = await this.client.post("/step2", bugReport);
       return response.data.result.hypotheses;
     } catch (error) {
       // 如果后端不可用，返回模拟数据
@@ -535,12 +529,10 @@ process_items(items)  # 会抛出 IndexError
     }
   }
 
-  async generateInstrumentation(hypothesis) {
+  async generateInstrumentation(bugReport) {
     try {
-      const response = await this.client.post("/api/generate-instrumentation", {
-        hypothesis: hypothesis,
-      });
-      return response.data;
+      const response = await this.client.post("/step3", bugReport);
+      return response.data.result.instrumentation_plan || response.data.result;
     } catch (error) {
       console.log(chalk.yellow("⚠️  使用模拟数据 (后端服务不可用)"));
       return {
@@ -553,13 +545,10 @@ process_items(items)  # 会抛出 IndexError
     }
   }
 
-  async runExperiment(mreCode, instrumentations) {
+  async runExperiment(mreCode) {
     try {
-      const response = await this.client.post("/api/run-experiment", {
-        mre_code: mreCode,
-        instrumentations: instrumentations,
-      });
-      return response.data;
+      const response = await this.client.post("/step4", mreCode);
+      return response.data.result;
     } catch (error) {
       console.log(chalk.yellow("⚠️  使用模拟数据 (后端服务不可用)"));
       return {
@@ -576,13 +565,10 @@ process_items(items)  # 会抛出 IndexError
     }
   }
 
-  async generatePatch(hypothesis, experimentResult) {
+  async generatePatch(hypothesis) {
     try {
-      const response = await this.client.post("/api/generate-patch", {
-        hypothesis: hypothesis,
-        experiment_result: experimentResult,
-      });
-      return response.data;
+      const response = await this.client.post("/step5", hypothesis);
+      return response.data.result.regression_results;
     } catch (error) {
       console.log(chalk.yellow("⚠️  使用模拟数据 (后端服务不可用)"));
       return {
@@ -602,9 +588,7 @@ process_items(items)  # 会抛出 IndexError
 
   async runRegressionTest(patchedCode) {
     try {
-      const response = await this.client.post("/api/run-regression", {
-        patched_code: patchedCode,
-      });
+      const response = await this.client.post("/step6", patchedCode);
       return response.data;
     } catch (error) {
       console.log(chalk.yellow("⚠️  使用模拟数据 (后端服务不可用)"));
