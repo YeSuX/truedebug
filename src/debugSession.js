@@ -9,7 +9,6 @@ class DebugSession {
   constructor(options) {
     this.githubUrl = options.githubUrl;
     this.serverUrl = options.serverUrl;
-    this.verbose = options.verbose;
     this.apiClient = new ApiClient(options.serverUrl);
     this.currentStep = 1;
     this.totalSteps = 7;
@@ -77,12 +76,10 @@ class DebugSession {
         this.githubUrl
       );
 
-      if (this.verbose) {
-        console.log(chalk.gray("📄 Bug报告已从 GitHub URL 加载:"));
-        console.log(
-          chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
-        );
-      }
+      console.log(chalk.gray("📄 Bug报告已从 GitHub URL 加载:"));
+      console.log(
+        chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
+      );
     } catch (error) {
       throw new Error(`无法从 GitHub URL 加载bug报告: ${error.message}`);
     }

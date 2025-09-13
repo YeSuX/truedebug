@@ -39,7 +39,6 @@ program
   .description("开始调试会话")
   .argument("<github-url>", "GitHub issue URL")
   .option("-s, --server <url>", "后端服务地址", "http://localhost:8000")
-  .option("-v, --verbose", "详细输出模式")
   .action(async (githubUrl, options) => {
     showWelcome();
 
@@ -59,7 +58,6 @@ program
     const session = new DebugSession({
       githubUrl: githubUrl,
       serverUrl: options.server,
-      verbose: options.verbose,
     });
 
     try {

@@ -162,7 +162,7 @@ vibestepper debug https://github.com/owner/repo/issues/123
 
 ```bash
 # 调试生产环境bug
-vibestepper debug production_bug.json --verbose
+vibestepper debug production_bug.json
 
 # 指定后端服务地址
 vibestepper debug bug_report.json --server http://your-server:8000
@@ -208,7 +208,6 @@ vibestepper debug <bug-report> [options]
 
 Options:
   -s, --server <url>    后端服务地址 (默认: http://localhost:8000)
-  -v, --verbose         详细输出模式
   -h, --help           显示帮助信息
   --version            显示版本号
 ```
