@@ -189,15 +189,6 @@ process_items(items)  # 会抛出 IndexError
       };
     }
   }
-
-  async healthCheck() {
-    try {
-      const response = await this.client.get("/health");
-      return response.data;
-    } catch (error) {
-      return { status: "offline", error: error.message };
-    }
-  }
 }
 
 export default ApiClient;
