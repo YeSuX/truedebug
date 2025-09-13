@@ -77,6 +77,8 @@ vibestepper debug <github-url> --token your_token_here
 3. 选择 `repo` 权限（用于访问公共和私有仓库的 issues）
 4. 复制生成的 token 并设置到 `.env` 文件中
 
+> 💡 **注意**: 配置 GitHub token 后，调试完成时可以选择将调试报告直接提交为 GitHub issue 的评论，实现调试结果的自动化归档。
+
 ### 4. 启动服务
 
 **启动后端服务:**
@@ -154,6 +156,7 @@ vibestepper debug https://github.com/owner/repo/issues/123
 
 - 生成结构化调试报告
 - 记录决策过程和证据
+- 支持保存到本地文件或提交到 GitHub issue
 - 便于后续参考和学习
 
 ## 🎯 使用场景

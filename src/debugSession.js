@@ -9,7 +9,10 @@ class DebugSession {
   constructor(options) {
     this.githubUrl = options.githubUrl;
     this.serverUrl = options.serverUrl;
-    this.apiClient = new ApiClient(options.serverUrl);
+    this.githubToken = options.githubToken;
+    this.apiClient = new ApiClient(options.serverUrl, {
+      githubToken: this.githubToken,
+    });
     this.currentStep = 1;
     this.totalSteps = 7;
     this.sessionData = {};
@@ -410,46 +413,106 @@ class DebugSession {
     console.log(chalk.white("补丁:"), chalk.blue(reportContent.补丁));
     console.log(chalk.white("回归结果:"), chalk.green(reportContent.回归结果));
 
-    // 保存调试报告
-    const reportFileName = `debug_report_${new Date()
-      .toISOString()
-      .split("T")[0]
-      .replace(/-/g, "")}.md`;
+    // 生成调试报告
     const reportMarkdown = this.generateMarkdownReport(reportContent);
 
-    fs.writeFileSync(reportFileName, reportMarkdown);
+    // 询问用户是否要提交到 GitHub
+    const { submitAction } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "submitAction",
+        message: "选择调试报告的处理方式:",
+        choices: [
+          { name: "📝 仅保存到本地文件", value: "local" },
+          { name: "🚀 提交评论到 GitHub issue", value: "github" },
+          { name: "📝🚀 保存本地并提交到 GitHub", value: "both" },
+          { name: "⏭️ 跳过保存", value: "skip" },
+        ],
+      },
+    ]);
 
-    console.log(chalk.green(`\n已保存到: ${reportFileName}`));
-    console.log(chalk.gray("可附加到 GitHub PR / Issue"));
+    let localSaved = false;
+    let githubSubmitted = false;
 
-    console.log(chalk.yellowBright("\n🎉 调试完成！"));
+    // 保存到本地文件
+    if (submitAction === "local" || submitAction === "both") {
+      try {
+        const reportFileName = `debug_report_${new Date()
+          .toISOString()
+          .split("T")[0]
+          .replace(/-/g, "")}.md`;
+        fs.writeFileSync(reportFileName, reportMarkdown);
+        console.log(chalk.green(`✅ 已保存到本地: ${reportFileName}`));
+        localSaved = true;
+      } catch (error) {
+        console.log(chalk.red(`❌ 保存本地文件失败: ${error.message}`));
+      }
+    }
+
+    // 提交到 GitHub
+    if (submitAction === "github" || submitAction === "both") {
+      try {
+        const spinner = ora("正在提交调试报告到 GitHub issue...").start();
+        await this.apiClient.postCommentToGitHubIssue(
+          this.githubUrl,
+          reportMarkdown
+        );
+        spinner.succeed("成功提交调试报告到 GitHub issue");
+        githubSubmitted = true;
+      } catch (error) {
+        spinner.fail(`提交到 GitHub 失败: ${error.message}`);
+        console.log(
+          chalk.yellow(
+            "💡 提示: 确保已在 .env 文件中配置 GITHUB_TOKEN 并具有写入权限"
+          )
+        );
+      }
+    }
+
+    // 显示结果摘要
+    if (localSaved || githubSubmitted) {
+      console.log(chalk.yellowBright("\n🎉 调试完成！"));
+      if (localSaved) console.log(chalk.gray("📝 报告已保存到本地"));
+      if (githubSubmitted)
+        console.log(chalk.gray("🚀 报告已提交到 GitHub issue"));
+    } else if (submitAction === "skip") {
+      console.log(chalk.yellowBright("\n🎉 调试完成！"));
+      console.log(chalk.gray("⏭️ 跳过了报告保存"));
+    }
 
     return await this.askStepNavigation("调试会话已完成，请选择操作:");
   }
 
   generateMarkdownReport(content) {
-    return `# 调试报告
+    return `## 🔍 VibeStepper 调试报告
 
-## 问题描述
+### 📋 问题描述
 ${content.问题}
 
-## 证据分析
+### 🔎 证据分析
 ${content.证据}
 
-## 决策过程
+### 🧠 决策过程
 ${content.决策}
 
-## 解决方案
+### 🛠️ 解决方案
 ${content.补丁}
 
-## 验证结果
+### ✅ 验证结果
 ${content.回归结果}
 
-## 时间戳
+### 📊 调试摘要
+- **根因确认**: ${
+      this.sessionData.rootCauseConfirmed ? "✅ 已确认" : "❌ 未确认"
+    }
+- **MRE 生成**: ${this.sessionData.mreConfirmed ? "✅ 成功复现" : "❌ 未能复现"}
+- **补丁应用**: ${this.sessionData.patchApplied ? "✅ 已应用" : "❌ 未应用"}
+
+### ⏰ 时间戳
 ${content.时间戳}
 
 ---
-*由 VibeStepper 自动生成*
+*🤖 由 [VibeStepper](https://github.com/your-repo/vibestepper) 自动生成的协议化调试报告*
 `;
   }
 }

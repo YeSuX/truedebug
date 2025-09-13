@@ -205,6 +205,68 @@ class ApiClient {
     return null;
   }
 
+  // 提交评论到 GitHub issue
+  async postCommentToGitHubIssue(githubUrl, comment) {
+    try {
+      // 解析 GitHub URL，提取 owner, repo, issue_number
+      const urlMatch = githubUrl.match(
+        /github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/
+      );
+      if (!urlMatch) {
+        throw new Error("无效的 GitHub issue URL 格式");
+      }
+
+      const [, owner, repo, issueNumber] = urlMatch;
+
+      // 使用 GitHub API 提交评论
+      const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+
+      console.log(chalk.gray(`🔗 正在提交评论到 GitHub issue: ${apiUrl}`));
+
+      // 构建请求头，包含认证信息
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "VibeStepper-Debug-Tool",
+        "Content-Type": "application/json",
+      };
+
+      // 如果有 GitHub token，添加认证头
+      if (this.githubToken) {
+        headers.Authorization = `token ${this.githubToken}`;
+      } else {
+        throw new Error(
+          "需要 GitHub token 才能提交评论，请在 .env 文件中设置 GITHUB_TOKEN"
+        );
+      }
+
+      const response = await axios.post(
+        apiUrl,
+        {
+          body: comment,
+        },
+        {
+          headers,
+          timeout: 10000,
+        }
+      );
+
+      console.log(chalk.green(`✅ 成功提交评论到 GitHub issue`));
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        throw new Error("GitHub issue 不存在或无法访问");
+      } else if (error.response?.status === 403) {
+        throw new Error("GitHub API 访问受限：token 可能无效或权限不足");
+      } else if (error.response?.status === 401) {
+        throw new Error("GitHub 认证失败：请检查 token 是否正确");
+      } else if (error.code === "ENOTFOUND") {
+        throw new Error("无法连接到 GitHub API，请检查网络连接");
+      } else {
+        throw new Error(`提交 GitHub 评论失败: ${error.message}`);
+      }
+    }
+  }
+
   async generateMRE(bugReport) {
     try {
       const response = await this.client.post("/api/generate-mre", {
