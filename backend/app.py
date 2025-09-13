@@ -11,6 +11,7 @@ step2_cache: dict[str, dict] = {}
 step3_cache: dict[str, dict] = {}
 step4_cache: dict[str, dict] = {}
 step5_cache: dict[str, dict] = {}
+step6_cache: dict[str, dict] = {}
 
 @app.post("/step1")
 async def step1_endpoint(data: dict = Body(...)):
@@ -24,6 +25,12 @@ async def step1_endpoint(data: dict = Body(...)):
 
     if not user_id:
         return {"error": "必须提供 user_id"}
+    
+    # ======== 先检查 cache =========
+    cached_result = step1_cache.get(user_id)
+    if cached_result is not None:
+        print(f"[CACHE HIT] step1 for user_id={user_id}")
+        return {"result": cached_result}
     
     # result = await step_one.handle_step1(ode, choice)
     result = await step_one.handle_step1(ode)
@@ -47,6 +54,12 @@ async def step2_endpoint(data: dict = Body(...)):
     if not user_id:
         return {"error": "必须提供 user_id"}
     
+    # ======== 先检查 cache =========
+    cached_result = step2_cache.get(user_id)
+    if cached_result is not None:
+        print(f"[CACHE HIT] step2 for user_id={user_id}")
+        return {"result": cached_result}
+    
     step1_output = step1_cache.get(user_id)
     if step1_output is None:
         return {"error": "未找到步骤 1 输出，请先执行 step1"}
@@ -69,6 +82,12 @@ async def step3_endpoint(data: dict = Body(...)):
     user_id: str = data.get("user_id")
     if not user_id:
         return {"error": "必须提供 user_id"}
+    
+    # ======== 先检查 cache =========
+    cached_result = step3_cache.get(user_id)
+    if cached_result is not None:
+        print(f"[CACHE HIT] step3 for user_id={user_id}")
+        return {"result": cached_result}
     
     # 获取步骤二中得到的假设成因
     step2_output = step2_cache.get(user_id)
@@ -94,6 +113,12 @@ async def step4_endpoint(data: dict = Body(...)):
     user_id: str = data.get("user_id")
     if not user_id:
         return {"error": "必须提供 user_id"}
+    
+    # ======== 先检查 cache =========
+    cached_result = step4_cache.get(user_id)
+    if cached_result is not None:
+        print(f"[CACHE HIT] step4 for user_id={user_id}")
+        return {"result": cached_result}
     
     # 获取步骤二中得到的假设成因
     step2_output = step2_cache.get(user_id)
@@ -123,6 +148,12 @@ async def step5_endpoint(data: dict = Body(...)):
     if not user_id:
         return {"error": "必须提供 user_id"}
     
+    # ======== 先检查 cache =========
+    cached_result = step5_cache.get(user_id)
+    if cached_result is not None:
+        print(f"[CACHE HIT] step5 for user_id={user_id}")
+        return {"result": cached_result}
+    
     # 获取步骤二中得到的假设成因
     step2_output = step2_cache.get(user_id)
     hypothesis = utils.extract_hypothesis(step2_output, choice)
@@ -149,6 +180,12 @@ async def step6_endpoint(data: dict = Body(...)):
     user_id: str = data.get("user_id")
     if not user_id:
         return {"error": "必须提供 user_id"}  
+    
+    # ======== 先检查 cache =========
+    cached_result = step6_cache.get(user_id)
+    if cached_result is not None:
+        print(f"[CACHE HIT] step6 for user_id={user_id}")
+        return {"result": cached_result}
 
     # 获取步骤一中的最小化可复现用例
     step1_output = step1_cache.get(user_id)
@@ -174,5 +211,7 @@ async def step6_endpoint(data: dict = Body(...)):
             "step5_regression": step5_output,
         }
     }
+
+    step6_cache[user_id] = result
 
     return {"result": result}
