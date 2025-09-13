@@ -1,0 +1,34 @@
+{
+  "title": "IndexError: list index out of range",
+  "description": "程序在处理列表时出现索引越界错误，导致程序崩溃。错误发生在循环处理项目列表的过程中。",
+  "code_file": "demo/buggy.py",
+  "error_message": "IndexError: list index out of range",
+  "stack_trace": [
+    "File \"demo/buggy.py\", line 15, in process_items",
+    "    item = items[i]",
+    "IndexError: list index out of range"
+  ],
+  "test_cases": [
+    "case_001_normal_list",
+    "case_002_empty_list", 
+    "case_003_single_item",
+    "case_004_large_list"
+  ],
+  "environment": {
+    "python_version": "3.9.0",
+    "os": "macOS",
+    "platform": "darwin"
+  },
+  "reproduction_steps": [
+    "1. 运行 python demo/buggy.py",
+    "2. 程序开始处理项目列表",
+    "3. 当循环到最后一个索引时发生越界",
+    "4. 抛出 IndexError 异常"
+  ],
+  "expected_behavior": "程序应该正常处理所有项目而不出现索引越界错误",
+  "actual_behavior": "程序在处理最后一个项目后尝试访问不存在的索引，导致崩溃",
+  "severity": "high",
+  "priority": "urgent",
+  "reported_by": "VibeStepper Demo",
+  "reported_at": "2025-09-13T10:30:00Z"
+}

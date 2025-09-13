@@ -1,0 +1,39 @@
+{
+  "name": "vibestepper-cli",
+  "version": "1.0.0",
+  "description": "协议化调试工具 - 终端交互式调试助手",
+  "main": "src/index.js",
+  "bin": {
+    "vibestepper": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "debug",
+    "cli",
+    "ai",
+    "协议化调试"
+  ],
+  "author": "TrueDebug Team",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "inquirer": "^9.2.0",
+    "chalk": "^5.3.0",
+    "axios": "^1.5.0",
+    "ora": "^7.0.1",
+    "boxen": "^7.1.1",
+    "figlet": "^1.7.0",
+    "cli-table3": "^0.6.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
