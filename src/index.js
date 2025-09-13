@@ -37,14 +37,36 @@ program
 program
   .command("debug")
   .description("开始调试会话")
-  .argument("<bug-report>", "bug报告文件路径 (JSON格式)")
+  .argument("[bug-report]", "bug报告文件路径 (JSON格式，可选)")
+  .option("-u, --url <github-url>", "GitHub issue URL")
   .option("-s, --server <url>", "后端服务地址", "http://localhost:8000")
   .option("-v, --verbose", "详细输出模式")
   .action(async (bugReport, options) => {
     showWelcome();
 
+    // 验证输入参数
+    if (!bugReport && !options.url) {
+      console.error(
+        chalk.red("❌ 错误: 必须提供 bug 报告文件路径或 GitHub issue URL")
+      );
+      console.log(chalk.gray("使用示例:"));
+      console.log(chalk.gray("  vibestepper debug bug_report.json"));
+      console.log(
+        chalk.gray(
+          "  vibestepper debug --url https://github.com/owner/repo/issues/123"
+        )
+      );
+      console.log(
+        chalk.gray(
+          "  vibestepper debug bug_report.json --url https://github.com/owner/repo/issues/123"
+        )
+      );
+      process.exit(1);
+    }
+
     const session = new DebugSession({
       bugReportPath: bugReport,
+      githubUrl: options.url,
       serverUrl: options.server,
       verbose: options.verbose,
     });

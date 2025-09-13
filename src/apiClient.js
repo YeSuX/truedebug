@@ -49,6 +49,114 @@ class ApiClient {
     );
   }
 
+  // 从 GitHub issue URL 获取问题内容
+  async fetchGitHubIssue(githubUrl) {
+    try {
+      // 解析 GitHub URL，提取 owner, repo, issue_number
+      const urlMatch = githubUrl.match(
+        /github\.com\/([^\/]+)\/([^\/]+)\/issues\/(\d+)/
+      );
+      if (!urlMatch) {
+        throw new Error("无效的 GitHub issue URL 格式");
+      }
+
+      const [, owner, repo, issueNumber] = urlMatch;
+
+      // 使用 GitHub API 获取 issue 内容
+      const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
+
+      console.log(chalk.gray(`🔗 正在获取 GitHub issue: ${apiUrl}`));
+
+      const response = await axios.get(apiUrl, {
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "VibeStepper-Debug-Tool",
+        },
+        timeout: 10000,
+      });
+
+      const issue = response.data;
+
+      // 将 GitHub issue 转换为 bug report 格式
+      const bugReport = {
+        title: issue.title,
+        description: issue.body || "无描述信息",
+        github_url: githubUrl,
+        github_issue_number: issueNumber,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        state: issue.state,
+        labels: issue.labels?.map((label) => label.name) || [],
+        // 尝试从 issue 内容中提取错误信息
+        error_message: this.extractErrorFromIssueBody(issue.body),
+        // 从 issue 内容中提取代码文件信息
+        code_file: this.extractCodeFileFromIssueBody(issue.body),
+        environment: {
+          source: "github_issue",
+          repository: `${owner}/${repo}`,
+        },
+      };
+
+      console.log(chalk.green(`✅ 成功获取 GitHub issue: ${issue.title}`));
+      return bugReport;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        throw new Error("GitHub issue 不存在或无法访问");
+      } else if (error.response?.status === 403) {
+        throw new Error("GitHub API 访问受限，可能需要认证");
+      } else if (error.code === "ENOTFOUND") {
+        throw new Error("无法连接到 GitHub API，请检查网络连接");
+      } else {
+        throw new Error(`获取 GitHub issue 失败: ${error.message}`);
+      }
+    }
+  }
+
+  // 从 issue 内容中提取错误信息
+  extractErrorFromIssueBody(body) {
+    if (!body) return null;
+
+    // 匹配常见的错误模式
+    const errorPatterns = [
+      /Error:\s*(.+)/i,
+      /Exception:\s*(.+)/i,
+      /Traceback[\s\S]*?(\w+Error:\s*.+)/i,
+      /Fatal:\s*(.+)/i,
+      /Crash:\s*(.+)/i,
+    ];
+
+    for (const pattern of errorPatterns) {
+      const match = body.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+
+    return null;
+  }
+
+  // 从 issue 内容中提取代码文件信息
+  extractCodeFileFromIssueBody(body) {
+    if (!body) return null;
+
+    // 匹配文件路径模式
+    const filePatterns = [
+      /File\s+"([^"]+)"/i,
+      /文件\s*[:：]\s*([^\s\n]+)/i,
+      /`([^`]+\.(py|js|java|cpp|c|go|rs|rb|php))`/i,
+      /([^\s]+\.(py|js|java|cpp|c|go|rs|rb|php))/i,
+    ];
+
+    for (const pattern of filePatterns) {
+      const match = body.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+
+    return null;
+  }
+
   async generateMRE(bugReport) {
     try {
       const response = await this.client.post("/api/generate-mre", {

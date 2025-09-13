@@ -9,6 +9,7 @@ import ApiClient from "./apiClient.js";
 class DebugSession {
   constructor(options) {
     this.bugReportPath = options.bugReportPath;
+    this.githubUrl = options.githubUrl; // 新增 GitHub URL 支持
     this.serverUrl = options.serverUrl;
     this.verbose = options.verbose;
     this.apiClient = new ApiClient(options.serverUrl);
@@ -18,7 +19,8 @@ class DebugSession {
   }
 
   async start() {
-    console.log(chalk.blue(`\n🚀 启动调试会话: ${this.bugReportPath}\n`));
+    const source = this.bugReportPath || this.githubUrl || "未知来源";
+    console.log(chalk.blue(`\n🚀 启动调试会话: ${source}\n`));
 
     // 加载bug报告
     await this.loadBugReport();
@@ -73,19 +75,56 @@ class DebugSession {
   }
 
   async loadBugReport() {
-    try {
-      const reportContent = fs.readFileSync(this.bugReportPath, "utf8");
-      this.sessionData.bugReport = JSON.parse(reportContent);
+    // 优先尝试从文件加载
+    if (this.bugReportPath) {
+      try {
+        const reportContent = fs.readFileSync(this.bugReportPath, "utf8");
+        this.sessionData.bugReport = JSON.parse(reportContent);
 
-      if (this.verbose) {
-        console.log(chalk.gray("📄 Bug报告已加载:"));
+        if (this.verbose) {
+          console.log(chalk.gray("📄 Bug报告已从文件加载:"));
+          console.log(
+            chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
+          );
+        }
+        return; // 文件加载成功，直接返回
+      } catch (fileError) {
         console.log(
-          chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
+          chalk.yellow(`⚠️  无法从文件加载bug报告: ${fileError.message}`)
         );
+
+        // 如果没有 GitHub URL 作为备选，则抛出错误
+        if (!this.githubUrl) {
+          throw new Error(
+            `无法加载bug报告文件，且未提供 GitHub URL 作为备选: ${fileError.message}`
+          );
+        }
+
+        console.log(chalk.gray("🔄 尝试从 GitHub URL 加载..."));
       }
-    } catch (error) {
-      throw new Error(`无法加载bug报告: ${error.message}`);
     }
+
+    // 如果文件加载失败或未提供文件路径，尝试从 GitHub URL 加载
+    if (this.githubUrl) {
+      try {
+        this.sessionData.bugReport = await this.apiClient.fetchGitHubIssue(
+          this.githubUrl
+        );
+
+        if (this.verbose) {
+          console.log(chalk.gray("📄 Bug报告已从 GitHub URL 加载:"));
+          console.log(
+            chalk.gray(JSON.stringify(this.sessionData.bugReport, null, 2))
+          );
+        }
+        return; // GitHub URL 加载成功
+      } catch (urlError) {
+        throw new Error(`无法从 GitHub URL 加载bug报告: ${urlError.message}`);
+      }
+    }
+
+    // 如果既没有文件路径也没有 GitHub URL
+    throw new Error("必须提供 bug 报告文件路径或 GitHub issue URL");
   }
 
   showStepHeader(stepName, description) {
