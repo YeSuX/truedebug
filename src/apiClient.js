@@ -1,9 +1,31 @@
 import axios from "axios";
 import chalk from "chalk";
+import dotenv from "dotenv";
+
+// 加载 .env 文件配置
+dotenv.config();
 
 class ApiClient {
-  constructor(baseURL) {
+  constructor(baseURL, options = {}) {
     this.baseURL = baseURL;
+    this.githubToken = options.githubToken || process.env.GITHUB_TOKEN;
+
+    // 调试信息：显示 token 配置状态
+    if (this.githubToken) {
+      console.log(
+        chalk.gray(
+          `🔑 GitHub Token 已配置 (${this.githubToken.substring(0, 8)}...)`
+        )
+      );
+    } else {
+      console.log(chalk.yellow("⚠️  未检测到 GitHub Token，将使用匿名访问"));
+      console.log(
+        chalk.gray(
+          "💡 提示：在项目根目录创建 .env 文件并添加 GITHUB_TOKEN=your_token"
+        )
+      );
+    }
+
     this.client = axios.create({
       baseURL: baseURL,
       timeout: 30000,
@@ -67,11 +89,26 @@ class ApiClient {
 
       console.log(chalk.gray(`🔗 正在获取 GitHub issue: ${apiUrl}`));
 
+      // 构建请求头，包含认证信息
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "VibeStepper-Debug-Tool",
+      };
+
+      // 如果有 GitHub token，添加认证头
+      if (this.githubToken) {
+        headers.Authorization = `token ${this.githubToken}`;
+        console.log(
+          chalk.gray("🔑 使用 GitHub Personal Access Token 进行认证")
+        );
+      } else {
+        console.log(
+          chalk.yellow("⚠️  未配置 GitHub token，使用匿名访问（有速率限制）")
+        );
+      }
+
       const response = await axios.get(apiUrl, {
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-          "User-Agent": "VibeStepper-Debug-Tool",
-        },
+        headers,
         timeout: 10000,
       });
 
@@ -103,7 +140,18 @@ class ApiClient {
       if (error.response?.status === 404) {
         throw new Error("GitHub issue 不存在或无法访问");
       } else if (error.response?.status === 403) {
-        throw new Error("GitHub API 访问受限，可能需要认证");
+        if (!this.githubToken) {
+          throw new Error(
+            "GitHub API 访问受限：请设置 GITHUB_TOKEN 环境变量或传入 githubToken 参数。\n" +
+              "获取 token 的步骤：\n" +
+              "1. 访问 https://github.com/settings/tokens\n" +
+              "2. 点击 'Generate new token (classic)'\n" +
+              "3. 选择 'repo' 权限\n" +
+              "4. 设置环境变量：export GITHUB_TOKEN=your_token_here"
+          );
+        } else {
+          throw new Error("GitHub API 访问受限：token 可能无效或权限不足");
+        }
       } else if (error.code === "ENOTFOUND") {
         throw new Error("无法连接到 GitHub API，请检查网络连接");
       } else {
